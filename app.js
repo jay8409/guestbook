@@ -145,8 +145,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Initialize Supabase Client if Credentials exist
 function initSupabaseClient() {
-  const url = localStorage.getItem(SUPABASE_URL_KEY);
-  const key = localStorage.getItem(SUPABASE_KEY_KEY);
+  const cfgUrl = window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url ? window.SUPABASE_CONFIG.url.trim() : '';
+  const cfgKey = window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey ? window.SUPABASE_CONFIG.anonKey.trim() : '';
+
+  const url = cfgUrl || localStorage.getItem(SUPABASE_URL_KEY);
+  const key = cfgKey || localStorage.getItem(SUPABASE_KEY_KEY);
   const badgeBtn = document.getElementById('supabaseConfigBtn');
   const dbModeText = document.getElementById('dbModeText');
 
