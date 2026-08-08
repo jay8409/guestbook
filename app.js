@@ -1,9 +1,11 @@
 /**
- * GLASSMOPHISM ANONYMOUS GUESTBOOK APP JS
+ * GLASSMOPHISM ANONYMOUS GUESTBOOK APP JS (SUPABASE POWERED)
  */
 
 const STORAGE_KEY = 'glass_guestbook_entries';
 const LIKES_KEY = 'glass_guestbook_user_likes';
+const SUPABASE_URL_KEY = 'glass_supabase_url';
+const SUPABASE_KEY_KEY = 'glass_supabase_key';
 
 // State Management
 let guestbookEntries = [];
@@ -15,17 +17,21 @@ let currentFilterSort = {
   sort: 'latest'
 };
 
+// Supabase Client Reference
+let supabaseClient = null;
+let isSupabaseActive = false;
+
 // Initial Seed Data (Pre-populated when empty)
 const SEED_DATA = [
   {
     id: 'entry-seed-1',
     author: '민우',
     avatar: '🎨',
-    passwordHash: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', // 'admin' or '1234'
-    content: '우연히 방문했는데 글래스모피즘 디자인이 정말 세련되고 예쁘네요! 비밀번호로 익명 작성 및 수정/삭제가 가능해서 든든합니다. 축하드려요 🎉',
+    passwordHash: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
+    content: '우연히 방문했는데 글래스모피즘 디자인이 정말 세련되고 예쁘네요! Supabase DB 연동 기능도 지원되어 멋집니다 🎉',
     isPrivate: false,
     likes: 12,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
     replies: [
       {
         id: 'reply-seed-1-1',
@@ -40,22 +46,22 @@ const SEED_DATA = [
     id: 'entry-seed-2',
     author: '시크릿게스트',
     avatar: '👾',
-    passwordHash: '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4', // '1234'
+    passwordHash: '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4',
     content: '이 글은 비밀글입니다! 작성 시 설정한 비밀번호를 알고 계시다면 해제하여 내용을 확인하실 수 있습니다.',
     isPrivate: true,
     likes: 5,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
     replies: []
   },
   {
     id: 'entry-seed-3',
     author: '개발자A',
     avatar: '🚀',
-    passwordHash: '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4', // '1234'
+    passwordHash: '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4',
     content: '1단계 답글 기능과 반응형 레이아웃이 매끄럽게 잘 동작하네요. 익명으로 자유롭게 소통할 수 있어 참 좋네요!',
     isPrivate: false,
     likes: 8,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
     replies: [
       {
         id: 'reply-seed-3-1',
@@ -130,14 +136,91 @@ function escapeHTML(str) {
 }
 
 // Initialize Application
-document.addEventListener('DOMContentLoaded', () => {
-  loadData();
+document.addEventListener('DOMContentLoaded', async () => {
+  initSupabaseClient();
+  await loadData();
   bindEvents();
   renderApp();
 });
 
-// Load entries & likes from LocalStorage
-function loadData() {
+// Initialize Supabase Client if Credentials exist
+function initSupabaseClient() {
+  const url = localStorage.getItem(SUPABASE_URL_KEY);
+  const key = localStorage.getItem(SUPABASE_KEY_KEY);
+  const badgeBtn = document.getElementById('supabaseConfigBtn');
+  const dbModeText = document.getElementById('dbModeText');
+
+  if (url && key && window.supabase) {
+    try {
+      supabaseClient = window.supabase.createClient(url, key);
+      isSupabaseActive = true;
+      badgeBtn.classList.remove('local-mode');
+      dbModeText.textContent = 'Supabase 클라우드 연동';
+      return;
+    } catch (e) {
+      console.error('Supabase Init Error:', e);
+    }
+  }
+
+  isSupabaseActive = false;
+  supabaseClient = null;
+  badgeBtn.classList.add('local-mode');
+  dbModeText.textContent = 'LocalStorage 모드';
+}
+
+// Load entries & likes from Supabase or LocalStorage
+async function loadData() {
+  // Load Likes
+  const storedLikes = localStorage.getItem(LIKES_KEY);
+  if (storedLikes) {
+    try {
+      userLikes = new Set(JSON.parse(storedLikes));
+    } catch (e) {
+      userLikes = new Set();
+    }
+  }
+
+  if (isSupabaseActive && supabaseClient) {
+    try {
+      const { data: entriesData, error: entriesErr } = await supabaseClient
+        .from('entries')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      const { data: repliesData, error: repliesErr } = await supabaseClient
+        .from('replies')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (!entriesErr && entriesData) {
+        guestbookEntries = entriesData.map(e => ({
+          id: e.id,
+          author: e.author,
+          avatar: e.avatar,
+          passwordHash: e.password_hash,
+          content: e.content,
+          isPrivate: e.is_private,
+          likes: e.likes,
+          createdAt: e.created_at,
+          unlocked: false,
+          replies: (repliesData || [])
+            .filter(r => r.entry_id === e.id)
+            .map(r => ({
+              id: r.id,
+              author: r.author,
+              passwordHash: r.password_hash,
+              content: r.content,
+              createdAt: r.created_at
+            }))
+        }));
+        return;
+      }
+    } catch (err) {
+      console.warn('Supabase fetch failed, falling back to LocalStorage:', err);
+    }
+  }
+
+  // Fallback LocalStorage
   const storedEntries = localStorage.getItem(STORAGE_KEY);
   if (storedEntries) {
     try {
@@ -147,21 +230,12 @@ function loadData() {
     }
   } else {
     guestbookEntries = SEED_DATA;
-    saveData();
-  }
-
-  const storedLikes = localStorage.getItem(LIKES_KEY);
-  if (storedLikes) {
-    try {
-      userLikes = new Set(JSON.parse(storedLikes));
-    } catch (e) {
-      userLikes = new Set();
-    }
+    saveLocalData();
   }
 }
 
-// Save entries to LocalStorage
-function saveData() {
+// Save local fallback data
+function saveLocalData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(guestbookEntries));
   localStorage.setItem(LIKES_KEY, JSON.stringify(Array.from(userLikes)));
 }
@@ -225,6 +299,12 @@ function bindEvents() {
   document.getElementById('closeEditModalBtn').addEventListener('click', closeEditModal);
   document.getElementById('cancelEditModalBtn').addEventListener('click', closeEditModal);
   document.getElementById('editForm').addEventListener('submit', handleSaveEdit);
+
+  // Supabase Config Modal Controls
+  document.getElementById('supabaseConfigBtn').addEventListener('click', openSupabaseModal);
+  document.getElementById('closeSupabaseModalBtn').addEventListener('click', closeSupabaseModal);
+  document.getElementById('supabaseConfigForm').addEventListener('submit', handleSaveSupabaseConfig);
+  document.getElementById('disconnectSupabaseBtn').addEventListener('click', handleDisconnectSupabase);
 }
 
 // Handle Add Guestbook Entry
@@ -247,22 +327,44 @@ async function handleAddEntry(e) {
   }
 
   const passwordHash = await hashPassword(password);
+  const entryId = `entry-${Date.now()}`;
+  const nowIso = new Date().toISOString();
 
   const newEntry = {
-    id: `entry-${Date.now()}`,
+    id: entryId,
     author: author,
     avatar: selectedAvatar,
     passwordHash: passwordHash,
     content: content,
     isPrivate: isPrivate,
-    unlocked: false, // Session unlock state
+    unlocked: false,
     likes: 0,
-    createdAt: new Date().toISOString(),
+    createdAt: nowIso,
     replies: []
   };
 
+  // Save to Supabase if Active
+  if (isSupabaseActive && supabaseClient) {
+    const { error } = await supabaseClient.from('entries').insert([{
+      id: entryId,
+      author: author,
+      avatar: selectedAvatar,
+      password_hash: passwordHash,
+      content: content,
+      is_private: isPrivate,
+      likes: 0,
+      created_at: nowIso
+    }]);
+
+    if (error) {
+      console.error('Supabase Insert Error:', error);
+      showToast('Supabase 저장 중 오류가 발생했습니다.', 'error');
+      return;
+    }
+  }
+
   guestbookEntries.unshift(newEntry);
-  saveData();
+  saveLocalData();
 
   // Reset Form
   document.getElementById('guestbookForm').reset();
@@ -412,7 +514,7 @@ function createEntryCardElement(entry) {
       </div>
     </div>
 
-    <!-- Replies Container (Default Hidden until toggled or if has replies) -->
+    <!-- Replies Container -->
     <div class="replies-container hidden" id="replies-${entry.id}">
       <form class="reply-form" onsubmit="handleAddReply(event, '${entry.id}')">
         <div class="reply-form-row">
@@ -446,7 +548,7 @@ function toggleRepliesSection(entryId) {
 }
 
 // Toggle Like Reaction
-function toggleLike(entryId) {
+async function toggleLike(entryId) {
   const entry = guestbookEntries.find(e => e.id === entryId);
   if (!entry) return;
 
@@ -460,7 +562,14 @@ function toggleLike(entryId) {
     showToast('글에 공감했습니다! ❤️', 'success');
   }
 
-  saveData();
+  if (isSupabaseActive && supabaseClient) {
+    await supabaseClient
+      .from('entries')
+      .update({ likes: entry.likes })
+      .eq('id', entryId);
+  }
+
+  saveLocalData();
   renderApp();
 }
 
@@ -482,22 +591,40 @@ async function handleAddReply(event, entryId) {
   if (!entry) return;
 
   const passwordHash = await hashPassword(password);
+  const replyId = `reply-${Date.now()}`;
+  const nowIso = new Date().toISOString();
 
   const newReply = {
-    id: `reply-${Date.now()}`,
+    id: replyId,
     author: author,
     passwordHash: passwordHash,
     content: content,
-    createdAt: new Date().toISOString()
+    createdAt: nowIso
   };
+
+  if (isSupabaseActive && supabaseClient) {
+    const { error } = await supabaseClient.from('replies').insert([{
+      id: replyId,
+      entry_id: entryId,
+      author: author,
+      password_hash: passwordHash,
+      content: content,
+      created_at: nowIso
+    }]);
+
+    if (error) {
+      console.error('Supabase Reply Error:', error);
+      showToast('Supabase 답글 저장 중 오류가 발생했습니다.', 'error');
+      return;
+    }
+  }
 
   if (!entry.replies) entry.replies = [];
   entry.replies.push(newReply);
 
-  saveData();
+  saveLocalData();
   renderApp();
 
-  // Keep reply container open after adding
   const container = document.getElementById(`replies-${entryId}`);
   if (container) container.classList.remove('hidden');
 
@@ -561,7 +688,6 @@ async function handlePasswordVerification(e) {
     return;
   }
 
-  // Determine Target & Password Hash to check
   let targetPasswordHash = '';
   let replyObj = null;
 
@@ -572,24 +698,28 @@ async function handlePasswordVerification(e) {
     targetPasswordHash = entry.passwordHash;
   }
 
-  // Check Hash Match
   if (inputHash !== targetPasswordHash) {
     errorMsg.classList.remove('hidden');
     return;
   }
 
-  // Hash Verified! Perform Action
   const { actionType, entryId, replyId } = activeModalState;
   closePasswordModal();
 
   if (actionType === 'deleteEntry') {
+    if (isSupabaseActive && supabaseClient) {
+      await supabaseClient.from('entries').delete().eq('id', entryId);
+    }
     guestbookEntries = guestbookEntries.filter(e => e.id !== entryId);
-    saveData();
+    saveLocalData();
     renderApp();
     showToast('방명록이 삭제되었습니다.', 'info');
   } else if (actionType === 'deleteReply') {
+    if (isSupabaseActive && supabaseClient) {
+      await supabaseClient.from('replies').delete().eq('id', replyId);
+    }
     entry.replies = entry.replies.filter(r => r.id !== replyId);
-    saveData();
+    saveLocalData();
     renderApp();
     showToast('답글이 삭제되었습니다.', 'info');
   } else if (actionType === 'unlock') {
@@ -628,7 +758,7 @@ function closeEditModal() {
   currentEditState = null;
 }
 
-function handleSaveEdit(e) {
+async function handleSaveEdit(e) {
   e.preventDefault();
   if (!currentEditState) return;
 
@@ -644,15 +774,76 @@ function handleSaveEdit(e) {
   if (entry) {
     if (actionType === 'editEntry') {
       entry.content = newContent;
+      if (isSupabaseActive && supabaseClient) {
+        await supabaseClient.from('entries').update({ content: newContent }).eq('id', entryId);
+      }
       showToast('방명록이 수정되었습니다.', 'success');
     } else if (actionType === 'editReply') {
       const reply = entry.replies.find(r => r.id === replyId);
-      if (reply) reply.content = newContent;
+      if (reply) {
+        reply.content = newContent;
+        if (isSupabaseActive && supabaseClient) {
+          await supabaseClient.from('replies').update({ content: newContent }).eq('id', replyId);
+        }
+      }
       showToast('답글이 수정되었습니다.', 'success');
     }
-    saveData();
+    saveLocalData();
     renderApp();
   }
 
   closeEditModal();
+}
+
+// Supabase Config Modal Logic
+function openSupabaseModal() {
+  const modal = document.getElementById('supabaseModal');
+  const urlInput = document.getElementById('supabaseUrlInput');
+  const keyInput = document.getElementById('supabaseKeyInput');
+
+  urlInput.value = localStorage.getItem(SUPABASE_URL_KEY) || '';
+  keyInput.value = localStorage.getItem(SUPABASE_KEY_KEY) || '';
+
+  modal.classList.remove('hidden');
+}
+
+function closeSupabaseModal() {
+  document.getElementById('supabaseModal').classList.add('hidden');
+}
+
+async function handleSaveSupabaseConfig(e) {
+  e.preventDefault();
+  const url = document.getElementById('supabaseUrlInput').value.trim();
+  const key = document.getElementById('supabaseKeyInput').value.trim();
+
+  if (!url || !key) {
+    showToast('Supabase URL과 Anon Key를 모두 입력해 주세요.', 'error');
+    return;
+  }
+
+  localStorage.setItem(SUPABASE_URL_KEY, url);
+  localStorage.setItem(SUPABASE_KEY_KEY, key);
+
+  initSupabaseClient();
+  await loadData();
+  renderApp();
+  closeSupabaseModal();
+
+  if (isSupabaseActive) {
+    showToast('Supabase 클라우드 데이터베이스에 연동되었습니다!', 'success');
+  } else {
+    showToast('Supabase 연동 실패. URL 및 Key를 확인해 주세요.', 'error');
+  }
+}
+
+async function handleDisconnectSupabase() {
+  localStorage.removeItem(SUPABASE_URL_KEY);
+  localStorage.removeItem(SUPABASE_KEY_KEY);
+
+  initSupabaseClient();
+  await loadData();
+  renderApp();
+  closeSupabaseModal();
+
+  showToast('LocalStorage 모드로 전환되었습니다.', 'info');
 }
