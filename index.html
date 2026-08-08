@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>글래스 방명록 | 익명 방명록 웹앱</title>
-  <meta name="description" content="회원가입 없이 누구나 익명으로 자유롭게 메시지를 남기고 답글을 달 수 있는 세련된 글래스모피즘 방명록 공간입니다.">
+  <title>글래스 방명록 | Supabase 연동 익명 방명록 웹앱</title>
+  <meta name="description" content="회원가입 없이 누구나 익명으로 자유롭게 메시지를 남기고 답글을 달 수 있는 Supabase 클라우드 데이터베이스 연동 글래스모피즘 방명록 공간입니다.">
   
   <!-- Google Fonts & Font Awesome Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,6 +12,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
+  <!-- Supabase JS Client SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -31,25 +34,32 @@
         </div>
         <div>
           <h1>Glass Guestbook</h1>
-          <p class="subtitle">자유롭고 안전한 익명 소통 공간</p>
+          <p class="subtitle">자유롭고 안전한 익명 소통 공간 (Supabase Powered)</p>
         </div>
       </div>
 
-      <!-- Stats Bar -->
-      <div class="stats-bar">
-        <div class="stat-item">
-          <i class="fa-solid fa-comments"></i>
-          <div>
-            <span class="stat-value" id="totalEntriesCount">0</span>
-            <span class="stat-label">전체 방명록</span>
+      <!-- Stats Bar & Supabase Connection Status -->
+      <div class="header-right">
+        <button id="supabaseConfigBtn" class="supabase-status-badge" title="Supabase DB 연동 설정">
+          <i class="fa-solid fa-database"></i>
+          <span id="dbModeText">Supabase 설정</span>
+        </button>
+
+        <div class="stats-bar">
+          <div class="stat-item">
+            <i class="fa-solid fa-comments"></i>
+            <div>
+              <span class="stat-value" id="totalEntriesCount">0</span>
+              <span class="stat-label">전체 방명록</span>
+            </div>
           </div>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <i class="fa-solid fa-heart"></i>
-          <div>
-            <span class="stat-value" id="totalLikesCount">0</span>
-            <span class="stat-label">누적 공감</span>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <i class="fa-solid fa-heart"></i>
+            <div>
+              <span class="stat-value" id="totalLikesCount">0</span>
+              <span class="stat-label">누적 공감</span>
+            </div>
           </div>
         </div>
       </div>
@@ -97,7 +107,7 @@
             <!-- Content Area -->
             <div class="form-group">
               <label for="contentInput" class="form-label"><i class="fa-solid fa-message"></i> 메시지 내용</label>
-              <textarea id="contentInput" class="glass-textarea" placeholder="따뜻한 한마디나 자유로운 소증한 메시지를 남겨주세요..." rows="4" required></textarea>
+              <textarea id="contentInput" class="glass-textarea" placeholder="따뜻한 한마디나 자유로운 소중한 메시지를 남겨주세요..." rows="4" required></textarea>
               <div class="char-count"><span id="currentCharCount">0</span> / 500자</div>
             </div>
 
@@ -193,6 +203,32 @@
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" id="cancelEditModalBtn">취소</button>
           <button type="submit" class="btn btn-primary">수정 완료</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 3: Supabase Settings Modal -->
+  <div id="supabaseModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="glass-card modal-card modal-large">
+      <button class="modal-close-btn" id="closeSupabaseModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-header">
+        <div class="modal-icon"><i class="fa-solid fa-database"></i></div>
+        <h3>Supabase 데이터베이스 연동 설정</h3>
+        <p class="modal-desc">Supabase 프로젝트 URL과 Anon Key를 입력하시면 클라우드 DB와 실시간 연동됩니다.</p>
+      </div>
+      <form id="supabaseConfigForm">
+        <div class="form-group">
+          <label for="supabaseUrlInput" class="form-label">Supabase Project URL</label>
+          <input type="url" id="supabaseUrlInput" class="glass-input" placeholder="https://your-project.supabase.co">
+        </div>
+        <div class="form-group">
+          <label for="supabaseKeyInput" class="form-label">Supabase Anon Key</label>
+          <input type="password" id="supabaseKeyInput" class="glass-input" placeholder="eyJhbGciOiJIUzI1NiIsInR..." autocomplete="off">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="disconnectSupabaseBtn">LocalStorage 모드로 전환</button>
+          <button type="submit" class="btn btn-primary">저장 및 연결</button>
         </div>
       </form>
     </div>
