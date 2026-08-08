@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>글래스 방명록 | 익명 방명록 웹앱</title>
+  <meta name="description" content="회원가입 없이 누구나 익명으로 자유롭게 메시지를 남기고 답글을 달 수 있는 세련된 글래스모피즘 방명록 공간입니다.">
+  
+  <!-- Google Fonts & Font Awesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="glow-bg">
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
+  </div>
+
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="fa-solid fa-book-bookmark"></i>
+        </div>
+        <div>
+          <h1>Glass Guestbook</h1>
+          <p class="subtitle">자유롭고 안전한 익명 소통 공간</p>
+        </div>
+      </div>
+
+      <!-- Stats Bar -->
+      <div class="stats-bar">
+        <div class="stat-item">
+          <i class="fa-solid fa-comments"></i>
+          <div>
+            <span class="stat-value" id="totalEntriesCount">0</span>
+            <span class="stat-label">전체 방명록</span>
+          </div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <i class="fa-solid fa-heart"></i>
+          <div>
+            <span class="stat-value" id="totalLikesCount">0</span>
+            <span class="stat-label">누적 공감</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Layout -->
+    <main class="main-layout">
+      <!-- Left Column: Entry Form Card -->
+      <aside class="sidebar">
+        <div class="glass-card form-card">
+          <div class="card-header">
+            <h2><i class="fa-solid fa-pen-nib"></i> 방명록 남기기</h2>
+            <span class="badge-anonymous"><i class="fa-solid fa-user-shield"></i> 익명 보장</span>
+          </div>
+
+          <form id="guestbookForm" class="guestbook-form">
+            <!-- Avatar Selection -->
+            <div class="form-group">
+              <label class="form-label">아바타 선택</label>
+              <div class="avatar-selector" id="avatarSelector">
+                <button type="button" class="avatar-option selected" data-avatar="🚀">🚀</button>
+                <button type="button" class="avatar-option" data-avatar="🐱">🐱</button>
+                <button type="button" class="avatar-option" data-avatar="🦊">🦊</button>
+                <button type="button" class="avatar-option" data-avatar="👾">👾</button>
+                <button type="button" class="avatar-option" data-avatar="🎨">🎨</button>
+                <button type="button" class="avatar-option" data-avatar="☕">☕</button>
+                <button type="button" class="avatar-option" data-avatar="🌟">🌟</button>
+                <button type="button" class="avatar-option" data-avatar="🍀">🍀</button>
+              </div>
+            </div>
+
+            <!-- Author & Password -->
+            <div class="form-row">
+              <div class="form-group">
+                <label for="authorInput" class="form-label"><i class="fa-solid fa-user"></i> 닉네임</label>
+                <input type="text" id="authorInput" class="glass-input" placeholder="닉네임 입력 (최대 12자)" maxlength="12" required>
+              </div>
+
+              <div class="form-group">
+                <label for="passwordInput" class="form-label"><i class="fa-solid fa-key"></i> 비밀번호</label>
+                <input type="password" id="passwordInput" class="glass-input" placeholder="수정/삭제용 비번 (4자리 이상)" minlength="4" required>
+              </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="form-group">
+              <label for="contentInput" class="form-label"><i class="fa-solid fa-message"></i> 메시지 내용</label>
+              <textarea id="contentInput" class="glass-textarea" placeholder="따뜻한 한마디나 자유로운 소증한 메시지를 남겨주세요..." rows="4" required></textarea>
+              <div class="char-count"><span id="currentCharCount">0</span> / 500자</div>
+            </div>
+
+            <!-- Private Toggle & Submit -->
+            <div class="form-footer">
+              <label class="checkbox-container">
+                <input type="checkbox" id="isPrivateCheckbox">
+                <span class="checkmark"></span>
+                <span class="checkbox-text"><i class="fa-solid fa-lock"></i> 비밀글로 등록</span>
+              </label>
+
+              <button type="submit" class="btn btn-primary">
+                <span>작성하기</span>
+                <i class="fa-solid fa-paper-plane"></i>
+              </button>
+            </div>
+          </form>
+        </div>
+      </aside>
+
+      <!-- Right Column: Feed & Controls -->
+      <section class="feed-section">
+        <!-- Search and Filter Controls Header -->
+        <div class="glass-card controls-card">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="searchInput" class="glass-input search-input" placeholder="작성자 또는 메시지 검색...">
+            <button id="clearSearchBtn" class="clear-search-btn hidden" title="검색어 지우기">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <div class="filter-group">
+            <label for="sortSelect" class="sort-label"><i class="fa-solid fa-arrow-down-short-wide"></i> 정렬:</label>
+            <select id="sortSelect" class="glass-select">
+              <option value="latest">최신순</option>
+              <option value="oldest">오래된순</option>
+              <option value="popular">좋아요순</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Feed List Container -->
+        <div id="entriesFeed" class="entries-feed">
+          <!-- Dynamically Rendered Guestbook Cards -->
+        </div>
+
+        <!-- Empty Feed State -->
+        <div id="emptyState" class="empty-state hidden">
+          <div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>
+          <h3>등록된 방명록이 없습니다</h3>
+          <p>첫 번째 메시지의 주인공이 되어주세요!</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal 1: Password Prompt Modal -->
+  <div id="passwordModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="glass-card modal-card">
+      <button class="modal-close-btn" id="closePasswordModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-header">
+        <div class="modal-icon" id="modalActionIcon"><i class="fa-solid fa-shield-halved"></i></div>
+        <h3 id="modalTitle">비밀번호 확인</h3>
+        <p id="modalDescription" class="modal-desc">작성 시 입력한 비밀번호를 입력해주세요.</p>
+      </div>
+      <form id="passwordCheckForm">
+        <div class="form-group">
+          <input type="password" id="modalPasswordInput" class="glass-input modal-input" placeholder="비밀번호 입력" required autofocus>
+          <div id="passwordErrorMsg" class="error-msg hidden"><i class="fa-solid fa-triangle-exclamation"></i> 비밀번호가 일치하지 않습니다.</div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelPasswordModalBtn">취소</button>
+          <button type="submit" class="btn btn-primary" id="confirmPasswordModalBtn">확인</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Edit Content Modal -->
+  <div id="editModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="glass-card modal-card modal-large">
+      <button class="modal-close-btn" id="closeEditModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-header">
+        <div class="modal-icon"><i class="fa-solid fa-pen-to-square"></i></div>
+        <h3>내용 수정하기</h3>
+      </div>
+      <form id="editForm">
+        <div class="form-group">
+          <label for="editContentInput" class="form-label">수정할 메시지</label>
+          <textarea id="editContentInput" class="glass-textarea" rows="5" required></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelEditModalBtn">취소</button>
+          <button type="submit" class="btn btn-primary">수정 완료</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
