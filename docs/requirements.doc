@@ -1,0 +1,140 @@
+<html xmlns:o='urn:schemas-microsoft-microsoft-com:office:office'
+      xmlns:w='urn:schemas-microsoft-microsoft-com:office:word'
+      xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>요구사항 정의서</title>
+<style>
+  body {
+    font-family: 'Malgun Gothic', '맑은 고딕', 'Segoe UI', Arial, sans-serif;
+    line-height: 1.6;
+    color: #1e293b;
+    margin: 40px;
+  }
+  h1 {
+    color: #0f172a;
+    font-size: 22pt;
+    border-bottom: 2px solid #6366f1;
+    padding-bottom: 8px;
+    margin-top: 0;
+  }
+  h2 {
+    color: #1e1b4b;
+    font-size: 16pt;
+    background-color: #f1f5f9;
+    padding: 6px 12px;
+    border-left: 4px solid #6366f1;
+    margin-top: 24px;
+  }
+  h3 {
+    color: #334155;
+    font-size: 13pt;
+    margin-top: 18px;
+  }
+  p, li {
+    font-size: 10.5pt;
+    color: #334155;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+  }
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 10pt;
+  }
+  th {
+    background-color: #e2e8f0;
+    color: #0f172a;
+    font-weight: bold;
+  }
+  tr:nth-child(even) {
+    background-color: #f8fafc;
+  }
+  pre, code {
+    font-family: 'Consolas', 'Courier New', monospace;
+    background-color: #0f172a;
+    color: #f8fafc;
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 9.5pt;
+    display: block;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 12px 0;
+  }
+  .meta-table {
+    margin-bottom: 20px;
+  }
+  .meta-table td {
+    border: none;
+    padding: 4px 8px;
+    background: transparent !important;
+  }
+</style>
+</head>
+<body>
+
+<h1>익명 방명록 웹 애플리케이션 요구사항 정의서</h1>
+<table class="meta-table">
+  <tr><td><b>작성일시:</b> 2026-08-08</td><td><b>상태:</b> 최종 확정 (Approved)</td></tr>
+  <tr><td><b>프로젝트:</b> 익명 방명록 웹앱</td><td><b>작성자:</b> Antigravity AI Agent</td></tr>
+</table>
+
+<hr/>
+
+<h2>1. 프로젝트 개요 (Overview)</h2>
+<p>본 프로젝트는 별도의 회원가입이나 로그인 절차 없이, 사용자가 익명으로 방명록 작성 및 답글 달기를 수행할 수 있는 웹 애플리케이션 개발을 목표로 합니다. 작성 시 입력한 비밀번호를 통해 본인 확인을 거쳐 게시글 및 답글의 수정/삭제가 가능하며, 비밀글, 좋아요 반응, 검색/정렬 기능 등 풍부한 UX 요소를 제공합니다.</p>
+
+<h2>2. 핵심 기능 요구사항 (Core Features)</h2>
+
+<h3>2.1 익명 방명록 작성 (Guestbook Entry Creation)</h3>
+<ul>
+  <li><b>익명 작성:</b> 닉네임, 비밀번호, 본문 내용 작성</li>
+  <li><b>비밀글 기능:</b> 비밀글 체크박스 선택 시, 비밀번호를 아는 사람만 내용 확인 가능 (모달을 통해 비밀번호 입력 후 잠금 해제)</li>
+  <li><b>타임스탬프:</b> 작성 일시 자동 기록 및 상대적 시간(예: 방금 전, 5분 전) / 절대 시간 표시</li>
+  <li><b>프로필 아바타:</b> 닉네임 기반 자동 생성 아바타 또는 8종 이모지 아바타 선택 지원</li>
+</ul>
+
+<h3>2.2 방명록 수정 및 삭제 (Edit & Delete Entry)</h3>
+<ul>
+  <li><b>비밀번호 검증:</b> 수정/삭제 시 모달 팝업에서 비밀번호 확인 (SHA-256 해시 검증)</li>
+  <li><b>수정 기능:</b> 비밀번호 일치 시 내용 수정 모드로 전환</li>
+  <li><b>삭제 기능:</b> 비밀번호 일치 시 해당 방명록 항목 및 달린 모든 답글 함께 삭제</li>
+</ul>
+
+<h3>2.3 답글(댓글) 시스템 (1단계 답글)</h3>
+<ul>
+  <li><b>답글 작성:</b> 특정 방명록 항목 하단에 답글 작성 (닉네임, 비밀번호, 답글 본문)</li>
+  <li><b>답글 수정/삭제:</b> 답글 작성 시 설정한 비밀번호 입력 후 수정 및 삭제 기능 제공</li>
+  <li><b>답글 개수 카운트:</b> 각 방명록 카드에 작성된 답글 개수 뱃지(Badge) 표시</li>
+</ul>
+
+<h3>2.4 인터랙션 & 추가 기능 (Interactions & Optional Features)</h3>
+<ul>
+  <li><b>공감 / 좋아요 버튼:</b> 방명록 글에 대해 하트/좋아요 카운트 증가 (로컬 저장)</li>
+  <li><b>검색 & 필터링:</b> 작성자(닉네임) 또는 본문 키워드 검색, 최신순/인기순/과거순 정렬</li>
+  <li><b>데이터 지속성:</b> 브라우저 LocalStorage 기반 데이터 저장 및 관리</li>
+</ul>
+
+<h2>3. UI/UX 디자인 명세 (Design Specifications)</h2>
+<ul>
+  <li><b>디자인 테마:</b> 다크 모드 기반 세련된 글래스모피즘 (Glassmorphism & Neon Accent)</li>
+  <li><b>컬러 파렛트:</b> Deep Slate Dark (#0b0f19, #111827), Glass Card Backdrop Blur, Neon Purple/Cyan Gradient</li>
+  <li><b>반응형 레이아웃:</b> 모바일, 태블릿, 데스크톱 화면 완벽 지원</li>
+</ul>
+
+<h2>4. 최종 확정 파라미터 (Final Decisions)</h2>
+<table>
+  <tr><th>구분</th><th>채택 사양</th></tr>
+  <tr><td>저장소 Architecture</td><td>Browser LocalStorage (별도 서버 없이 동작)</td></tr>
+  <tr><td>디자인 테마</td><td>Glassmorphism Dark Mode</td></tr>
+  <tr><td>답글 구조</td><td>1단계 계층 구조</td></tr>
+  <tr><td>부가 기능</td><td>비밀글, 좋아요 버튼, 실시간 검색 및 정렬</td></tr>
+</table>
+
+</body>
+</html>
