@@ -212,6 +212,7 @@ async function signInWithKakao() {
   const { data, error } = await supabaseClient.auth.signInWithOAuth({
     provider: 'kakao',
     options: {
+      scopes: 'profile_nickname profile_image',
       redirectTo: window.location.origin
     }
   });
