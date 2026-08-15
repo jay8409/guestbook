@@ -1,5 +1,5 @@
 /**
- * GLASSMOPHISM ANONYMOUS GUESTBOOK APP JS (SUPABASE POWERED)
+ * GLASSMOPHISM ANONYMOUS & KAKAO SSO GUESTBOOK APP JS
  */
 
 const STORAGE_KEY = 'glass_guestbook_entries';
@@ -11,15 +11,16 @@ const SUPABASE_KEY_KEY = 'glass_supabase_key';
 let guestbookEntries = [];
 let userLikes = new Set();
 let selectedAvatar = '🚀';
-let activeModalState = null; // { type: 'entry'|'reply'|'unlock', action: 'edit'|'delete'|'unlock', entryId, replyId }
+let activeModalState = null; // { actionType, entryId, replyId }
 let currentFilterSort = {
   search: '',
   sort: 'latest'
 };
 
-// Supabase Client Reference
+// Supabase & Kakao Auth References
 let supabaseClient = null;
 let isSupabaseActive = false;
+let currentKakaoUser = null;
 
 // Initial Seed Data (Pre-populated when empty)
 const SEED_DATA = [
@@ -28,7 +29,7 @@ const SEED_DATA = [
     author: '민우',
     avatar: '🎨',
     passwordHash: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
-    content: '우연히 방문했는데 글래스모피즘 디자인이 정말 세련되고 예쁘네요! Supabase DB 연동 기능도 지원되어 멋집니다 🎉',
+    content: '우연히 방문했는데 글래스모피즘 디자인이 정말 세련되고 예쁘네요! Supabase & 카카오 SSO 연동 기능도 지원되어 멋집니다 🎉',
     isPrivate: false,
     likes: 12,
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
@@ -58,7 +59,7 @@ const SEED_DATA = [
     author: '개발자A',
     avatar: '🚀',
     passwordHash: '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4',
-    content: '1단계 답글 기능과 반응형 레이아웃이 매끄럽게 잘 동작하네요. 익명으로 자유롭게 소통할 수 있어 참 좋네요!',
+    content: '1단계 답글 기능과 반응형 레이아웃이 매끄럽게 잘 동작하네요. 카카오 로그인으로 간편하게 소통할 수 있어 참 좋네요!',
     isPrivate: false,
     likes: 8,
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
@@ -76,6 +77,7 @@ const SEED_DATA = [
 
 // Helper: Hash password using SHA-256
 async function hashPassword(str) {
+  if (!str) return '';
   const encoder = new TextEncoder();
   const data = encoder.encode(str);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -140,10 +142,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   initSupabaseClient();
   await loadData();
   bindEvents();
+  initKakaoAuthListener();
   renderApp();
 });
 
-// Initialize Supabase Client if Credentials exist
+// Initialize Supabase Client
 function initSupabaseClient() {
   const cfgUrl = window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url ? window.SUPABASE_CONFIG.url.trim() : '';
   const cfgKey = window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey ? window.SUPABASE_CONFIG.anonKey.trim() : '';
@@ -171,9 +174,113 @@ function initSupabaseClient() {
   dbModeText.textContent = 'LocalStorage 모드';
 }
 
+// Initialize Kakao Auth Listener & Session Check
+function initKakaoAuthListener() {
+  if (!isSupabaseActive || !supabaseClient) return;
+
+  // Get current auth session
+  supabaseClient.auth.getSession().then(({ data: { session } }) => {
+    if (session && session.user) {
+      currentKakaoUser = session.user;
+      updateAuthUI();
+      renderApp();
+    }
+  });
+
+  // Listen for auth state changes (e.g. redirect back from Kakao OAuth)
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (session && session.user) {
+      currentKakaoUser = session.user;
+      updateAuthUI();
+      renderApp();
+    } else {
+      currentKakaoUser = null;
+      updateAuthUI();
+      renderApp();
+    }
+  });
+}
+
+// Sign in with Kakao OAuth
+async function signInWithKakao() {
+  if (!isSupabaseActive || !supabaseClient) {
+    showToast('Supabase가 연결되지 않았습니다. 상단 Supabase 설정을 먼저 완료해 주세요.', 'error');
+    openSupabaseModal();
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithOAuth({
+    provider: 'kakao',
+    options: {
+      redirectTo: window.location.origin
+    }
+  });
+
+  if (error) {
+    console.error('Kakao OAuth Error:', error);
+    showToast(`카카오 로그인 중 오류가 발생했습니다: ${error.message}`, 'error');
+  }
+}
+
+// Sign out Kakao User
+async function signOutKakao() {
+  if (supabaseClient) {
+    await supabaseClient.auth.signOut();
+  }
+  currentKakaoUser = null;
+  updateAuthUI();
+  showToast('로그아웃 되었습니다.', 'info');
+  renderApp();
+}
+
+// Update Auth UI Components
+function updateAuthUI() {
+  const loginContainer = document.getElementById('kakaoLoginContainer');
+  const profileContainer = document.getElementById('kakaoProfileContainer');
+  const userAvatar = document.getElementById('kakaoUserAvatar');
+  const userName = document.getElementById('kakaoUserName');
+  const authorInput = document.getElementById('authorInput');
+  const passwordFormGroup = document.getElementById('passwordFormGroup');
+  const passwordInput = document.getElementById('passwordInput');
+  const authNoticeText = document.getElementById('authNoticeText');
+  const formKakaoLoginBtn = document.getElementById('formKakaoLoginBtn');
+
+  if (currentKakaoUser) {
+    // Logged in via Kakao
+    const metadata = currentKakaoUser.user_metadata || {};
+    const nickname = metadata.full_name || metadata.name || currentKakaoUser.email || '카카오 회원';
+    const avatarUrl = metadata.avatar_url || metadata.picture || 'https://k.kakaocdn.net/dn/dpk9f1/btqmGhA5lTK/7g5A622A5k6k19A56K2l4K/img_640x640.jpg';
+
+    loginContainer.classList.add('hidden');
+    profileContainer.classList.remove('hidden');
+
+    userAvatar.src = avatarUrl;
+    userName.textContent = nickname;
+
+    // Auto fill author input & handle password input
+    authorInput.value = nickname;
+    passwordInput.removeAttribute('required');
+    passwordInput.placeholder = '비밀번호 생략 가능 (카카오 인증됨)';
+    passwordFormGroup.style.opacity = '0.6';
+
+    authNoticeText.innerHTML = `<i class="fa-solid fa-check-circle" style="color: #FEE500;"></i> <strong>${escapeHTML(nickname)}</strong>님으로 카카오 로그인됨 (비밀번호 없이 작성/수정/삭제 가능)`;
+    formKakaoLoginBtn.classList.add('hidden');
+  } else {
+    // Guest Mode
+    loginContainer.classList.remove('hidden');
+    profileContainer.classList.add('hidden');
+
+    passwordInput.setAttribute('required', 'true');
+    passwordInput.placeholder = '수정/삭제용 비번 (4자리 이상)';
+    passwordFormGroup.style.opacity = '1';
+
+    authNoticeText.innerHTML = `<i class="fa-solid fa-info-circle"></i> 카카오로 로그인하면 비밀번호 입력 없이 작성 및 관리가 가능합니다.`;
+    formKakaoLoginBtn.classList.remove('hidden');
+  }
+}
+
 // Load entries & likes from Supabase or LocalStorage
 async function loadData() {
-  // Load Likes
   const storedLikes = localStorage.getItem(LIKES_KEY);
   if (storedLikes) {
     try {
@@ -198,6 +305,7 @@ async function loadData() {
       if (!entriesErr && entriesData) {
         guestbookEntries = entriesData.map(e => ({
           id: e.id,
+          userId: e.user_id || null,
           author: e.author,
           avatar: e.avatar,
           passwordHash: e.password_hash,
@@ -210,6 +318,7 @@ async function loadData() {
             .filter(r => r.entry_id === e.id)
             .map(r => ({
               id: r.id,
+              userId: r.user_id || null,
               author: r.author,
               passwordHash: r.password_hash,
               content: r.content,
@@ -245,6 +354,11 @@ function saveLocalData() {
 
 // Bind DOM Event Listeners
 function bindEvents() {
+  // Kakao Login & Logout Buttons
+  document.getElementById('kakaoLoginBtn').addEventListener('click', signInWithKakao);
+  document.getElementById('formKakaoLoginBtn').addEventListener('click', signInWithKakao);
+  document.getElementById('kakaoLogoutBtn').addEventListener('click', signOutKakao);
+
   // Avatar Selection
   const avatarOptions = document.querySelectorAll('.avatar-option');
   avatarOptions.forEach(btn => {
@@ -319,22 +433,24 @@ async function handleAddEntry(e) {
   const content = document.getElementById('contentInput').value.trim();
   const isPrivate = document.getElementById('isPrivateCheckbox').checked;
 
-  if (!author || !password || !content) {
-    showToast('모든 항목을 올바르게 입력해주세요.', 'error');
+  if (!author || (!currentKakaoUser && !password) || !content) {
+    showToast('모든 필수 항목을 입력해주세요.', 'error');
     return;
   }
 
-  if (password.length < 4) {
+  if (!currentKakaoUser && password.length < 4) {
     showToast('비밀번호는 최소 4자리 이상이어야 합니다.', 'error');
     return;
   }
 
-  const passwordHash = await hashPassword(password);
+  const passwordHash = password ? await hashPassword(password) : 'kakao-sso-auth';
   const entryId = `entry-${Date.now()}`;
   const nowIso = new Date().toISOString();
+  const userId = currentKakaoUser ? currentKakaoUser.id : null;
 
   const newEntry = {
     id: entryId,
+    userId: userId,
     author: author,
     avatar: selectedAvatar,
     passwordHash: passwordHash,
@@ -348,7 +464,7 @@ async function handleAddEntry(e) {
 
   // Save to Supabase if Active
   if (isSupabaseActive && supabaseClient) {
-    const { error } = await supabaseClient.from('entries').insert([{
+    const payload = {
       id: entryId,
       author: author,
       avatar: selectedAvatar,
@@ -357,7 +473,10 @@ async function handleAddEntry(e) {
       is_private: isPrivate,
       likes: 0,
       created_at: nowIso
-    }]);
+    };
+    if (userId) payload.user_id = userId;
+
+    const { error } = await supabaseClient.from('entries').insert([payload]);
 
     if (error) {
       console.error('Supabase Insert Error:', error);
@@ -370,8 +489,13 @@ async function handleAddEntry(e) {
   saveLocalData();
 
   // Reset Form
-  document.getElementById('guestbookForm').reset();
+  document.getElementById('contentInput').value = '';
+  document.getElementById('isPrivateCheckbox').checked = false;
   document.getElementById('currentCharCount').textContent = '0';
+  if (!currentKakaoUser) {
+    document.getElementById('authorInput').value = '';
+    document.getElementById('passwordInput').value = '';
+  }
   
   renderApp();
   showToast('소중한 방명록이 성공적으로 등록되었습니다!', 'success');
@@ -435,6 +559,7 @@ function createEntryCardElement(entry) {
 
   const isLiked = userLikes.has(entry.id);
   const timeAgo = formatTimeAgo(entry.createdAt);
+  const isKakaoPost = Boolean(entry.userId);
 
   // Private Post Logic
   let contentHTML = '';
@@ -442,9 +567,9 @@ function createEntryCardElement(entry) {
     contentHTML = `
       <div class="secret-mask">
         <i class="fa-solid fa-lock"></i>
-        <p>비밀글입니다. 작성 시 입력한 비밀번호로 내용을 확인할 수 있습니다.</p>
-        <button class="btn btn-secondary btn-sm" onclick="openPasswordModal('unlock', '${entry.id}')">
-          <i class="fa-solid fa-key"></i> 비밀번호 입력하여 보기
+        <p>비밀글입니다. 작성자이거나 비밀번호 입력으로 내용을 확인할 수 있습니다.</p>
+        <button class="btn btn-secondary btn-sm" onclick="handleAction('unlock', '${entry.id}')">
+          <i class="fa-solid fa-key"></i> 비밀글 열람하기
         </button>
       </div>
     `;
@@ -462,13 +587,14 @@ function createEntryCardElement(entry) {
           <div class="reply-author">
             <i class="fa-solid fa-reply"></i>
             <span>${escapeHTML(reply.author)}</span>
+            ${reply.userId ? '<span class="kakao-author-badge"><i class="fa-solid fa-comment"></i> 카카오</span>' : ''}
           </div>
           <div class="reply-actions">
             <span class="reply-time">${formatTimeAgo(reply.createdAt)}</span>
-            <button class="btn-icon-action" onclick="openPasswordModal('editReply', '${entry.id}', '${reply.id}')" title="답글 수정">
+            <button class="btn-icon-action" onclick="handleAction('editReply', '${entry.id}', '${reply.id}')" title="답글 수정">
               <i class="fa-solid fa-pen"></i>
             </button>
-            <button class="btn-icon-action" onclick="openPasswordModal('deleteReply', '${entry.id}', '${reply.id}')" title="답글 삭제">
+            <button class="btn-icon-action" onclick="handleAction('deleteReply', '${entry.id}', '${reply.id}')" title="답글 삭제">
               <i class="fa-solid fa-trash"></i>
             </button>
           </div>
@@ -478,6 +604,11 @@ function createEntryCardElement(entry) {
     `).join('');
   }
 
+  // Dynamic Reply Form HTML based on Auth state
+  const replyPasswordInputAttr = currentKakaoUser ? '' : 'required minlength="4"';
+  const replyPasswordPlaceholder = currentKakaoUser ? '비밀번호 생략 (카카오)' : '비밀번호';
+  const replyAuthorValue = currentKakaoUser ? (currentKakaoUser.user_metadata?.full_name || currentKakaoUser.user_metadata?.name || '') : '';
+
   card.innerHTML = `
     <div class="entry-header">
       <div class="author-info">
@@ -485,6 +616,7 @@ function createEntryCardElement(entry) {
         <div>
           <div class="author-name">
             <span>${escapeHTML(entry.author)}</span>
+            ${isKakaoPost ? '<span class="kakao-author-badge"><i class="fa-solid fa-comment"></i> 카카오</span>' : ''}
             ${entry.isPrivate ? '<span class="private-indicator"><i class="fa-solid fa-lock"></i> 비밀글</span>' : ''}
           </div>
           <span class="entry-time">${timeAgo}</span>
@@ -492,10 +624,10 @@ function createEntryCardElement(entry) {
       </div>
 
       <div class="entry-actions">
-        <button class="btn-icon-action" onclick="openPasswordModal('editEntry', '${entry.id}')" title="글 수정">
+        <button class="btn-icon-action" onclick="handleAction('editEntry', '${entry.id}')" title="글 수정">
           <i class="fa-solid fa-pen-to-square"></i>
         </button>
-        <button class="btn-icon-action" onclick="openPasswordModal('deleteEntry', '${entry.id}')" title="글 삭제">
+        <button class="btn-icon-action" onclick="handleAction('deleteEntry', '${entry.id}')" title="글 삭제">
           <i class="fa-solid fa-trash-can"></i>
         </button>
       </div>
@@ -521,8 +653,8 @@ function createEntryCardElement(entry) {
     <div class="replies-container hidden" id="replies-${entry.id}">
       <form class="reply-form" onsubmit="handleAddReply(event, '${entry.id}')">
         <div class="reply-form-row">
-          <input type="text" class="glass-input reply-author-input" placeholder="닉네임" required maxlength="10">
-          <input type="password" class="glass-input reply-password-input" placeholder="비밀번호" required minlength="4">
+          <input type="text" class="glass-input reply-author-input" placeholder="닉네임" value="${escapeHTML(replyAuthorValue)}" required maxlength="10">
+          <input type="password" class="glass-input reply-password-input" placeholder="${replyPasswordPlaceholder}" ${replyPasswordInputAttr}>
         </div>
         <textarea class="glass-textarea reply-content-input" placeholder="답글을 남겨주세요..." rows="2" required></textarea>
         <div class="reply-form-footer">
@@ -588,17 +720,19 @@ async function handleAddReply(event, entryId) {
   const password = passwordInput.value.trim();
   const content = contentInput.value.trim();
 
-  if (!author || !password || !content) return;
+  if (!author || (!currentKakaoUser && !password) || !content) return;
 
   const entry = guestbookEntries.find(e => e.id === entryId);
   if (!entry) return;
 
-  const passwordHash = await hashPassword(password);
+  const passwordHash = password ? await hashPassword(password) : 'kakao-sso-auth';
   const replyId = `reply-${Date.now()}`;
   const nowIso = new Date().toISOString();
+  const userId = currentKakaoUser ? currentKakaoUser.id : null;
 
   const newReply = {
     id: replyId,
+    userId: userId,
     author: author,
     passwordHash: passwordHash,
     content: content,
@@ -606,14 +740,17 @@ async function handleAddReply(event, entryId) {
   };
 
   if (isSupabaseActive && supabaseClient) {
-    const { error } = await supabaseClient.from('replies').insert([{
+    const payload = {
       id: replyId,
       entry_id: entryId,
       author: author,
       password_hash: passwordHash,
       content: content,
       created_at: nowIso
-    }]);
+    };
+    if (userId) payload.user_id = userId;
+
+    const { error } = await supabaseClient.from('replies').insert([payload]);
 
     if (error) {
       console.error('Supabase Reply Error:', error);
@@ -632,6 +769,54 @@ async function handleAddReply(event, entryId) {
   if (container) container.classList.remove('hidden');
 
   showToast('답글이 작성되었습니다.', 'success');
+}
+
+// Unified Action Handler for Edit/Delete/Unlock (Handles Kakao SSO Authorization Bypass)
+async function handleAction(actionType, entryId, replyId = null) {
+  const entry = guestbookEntries.find(e => e.id === entryId);
+  if (!entry) return;
+
+  let isAuthor = false;
+  if (currentKakaoUser) {
+    if (actionType.includes('Reply')) {
+      const reply = entry.replies.find(r => r.id === replyId);
+      if (reply && reply.userId === currentKakaoUser.id) isAuthor = true;
+    } else {
+      if (entry.userId === currentKakaoUser.id) isAuthor = true;
+    }
+  }
+
+  // If Kakao logged-in user is the author, BYPASS password modal!
+  if (isAuthor) {
+    if (actionType === 'deleteEntry') {
+      if (isSupabaseActive && supabaseClient) {
+        await supabaseClient.from('entries').delete().eq('id', entryId);
+      }
+      guestbookEntries = guestbookEntries.filter(e => e.id !== entryId);
+      saveLocalData();
+      renderApp();
+      showToast('카카오 본인 인증으로 방명록이 삭제되었습니다.', 'info');
+    } else if (actionType === 'deleteReply') {
+      if (isSupabaseActive && supabaseClient) {
+        await supabaseClient.from('replies').delete().eq('id', replyId);
+      }
+      entry.replies = entry.replies.filter(r => r.id !== replyId);
+      saveLocalData();
+      renderApp();
+      showToast('카카오 본인 인증으로 답글이 삭제되었습니다.', 'info');
+    } else if (actionType === 'unlock') {
+      entry.unlocked = true;
+      renderApp();
+      showToast('작성자 본인 인증으로 비밀글이 해제되었습니다.', 'success');
+    } else if (actionType === 'editEntry' || actionType === 'editReply') {
+      openEditModal(actionType, entryId, replyId);
+      showToast('카카오 본인 인증으로 수정 모드가 열렸습니다.', 'success');
+    }
+    return;
+  }
+
+  // Otherwise, prompt for Password Modal
+  openPasswordModal(actionType, entryId, replyId);
 }
 
 // Modal Trigger Handler
