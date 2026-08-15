@@ -38,8 +38,22 @@
         </div>
       </div>
 
-      <!-- Stats Bar & Supabase Connection Status -->
+      <!-- Stats Bar & Supabase Connection Status & Kakao Login -->
       <div class="header-right">
+        <!-- Kakao Auth Controls -->
+        <div id="kakaoLoginContainer">
+          <button id="kakaoLoginBtn" class="btn btn-kakao" title="카카오 계정으로 간편 로그인">
+            <i class="fa-solid fa-comment"></i>
+            <span>카카오로 1초 로그인</span>
+          </button>
+        </div>
+
+        <div id="kakaoProfileContainer" class="kakao-user-profile hidden">
+          <img id="kakaoUserAvatar" class="kakao-avatar" src="" alt="Kakao Avatar">
+          <span id="kakaoUserName" class="kakao-username">닉네임</span>
+          <button id="kakaoLogoutBtn" class="btn-logout">로그아웃</button>
+        </div>
+
         <button id="supabaseConfigBtn" class="supabase-status-badge" title="Supabase DB 연동 설정">
           <i class="fa-solid fa-database"></i>
           <span id="dbModeText">Supabase 설정</span>
@@ -76,6 +90,16 @@
           </div>
 
           <form id="guestbookForm" class="guestbook-form">
+            <!-- Kakao Login Notice / Status -->
+            <div id="formAuthNotice" class="form-auth-notice">
+              <span class="form-auth-text" id="authNoticeText">
+                <i class="fa-solid fa-info-circle"></i> 카카오로 로그인하면 비밀번호 입력 없이 작성 및 관리할 수 있습니다.
+              </span>
+              <button type="button" id="formKakaoLoginBtn" class="btn btn-kakao btn-sm">
+                <i class="fa-solid fa-comment"></i> 로그인
+              </button>
+            </div>
+
             <!-- Avatar Selection -->
             <div class="form-group">
               <label class="form-label">아바타 선택</label>
@@ -98,9 +122,9 @@
                 <input type="text" id="authorInput" class="glass-input" placeholder="닉네임 입력 (최대 12자)" maxlength="12" required>
               </div>
 
-              <div class="form-group">
+              <div class="form-group" id="passwordFormGroup">
                 <label for="passwordInput" class="form-label"><i class="fa-solid fa-key"></i> 비밀번호</label>
-                <input type="password" id="passwordInput" class="glass-input" placeholder="수정/삭제용 비번 (4자리 이상)" minlength="4" required>
+                <input type="password" id="passwordInput" class="glass-input" placeholder="수정/삭제용 비번 (4자리 이상)" minlength="4">
               </div>
             </div>
 
